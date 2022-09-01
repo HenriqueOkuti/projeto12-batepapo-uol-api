@@ -5,21 +5,69 @@ import dotenv from 'dotenv';
 import dayjs from 'dayjs';
 import joi from 'joi';
 
+const server = express();
+
 server.use(cors());
 server.use(express.json());
 dotenv.config();
 
-const server = express();
-
 const mongoClient = new MongoClient(process.env.MONGO_URI);
 let db;
 
-server.post('/participants', (req, res) => {});
+mongoClient
+  .connect()
+  .then(() => (db = mongoClient.db('uol-users')))
+  .catch((error) => console.log(error));
+
+server.post('/participants', async (req, res) => {
+  const user = req.body;
+
+  const joi_user = joi.object({
+    name: joi.string().required(),
+  });
+
+  const joi_feedback = joi_user.validate(user);
+  if (joi_feedback.error) {
+    return res.sendStatus(422);
+  }
+
+  try {
+    const searchUser = await db
+      .collection('uol-users')
+      .findOne({ name: user.name });
+    if (searchUser) {
+      return res.sendStatus(409);
+    }
+  } catch (error) {
+    console.log(error);
+    res.sendStatus(500);
+  }
+
+  await db.collection('uol-users').insertOne({
+    name: user.name,
+    lastStatus: Date.now(),
+  });
+
+  await db.collection('uol-chatlog').insertOne({
+    from: user.name,
+    to: 'Todos',
+    text: 'entra na sala...',
+    type: 'status',
+    time: dayjs().format('HH:mm:ss'),
+  });
+
+  const last_message = await db
+    .collection('uol-chatlog')
+    .findOne({ from: user.name });
+  console.log(last_message);
+
+  res.sendStatus(201);
+});
 //  body da request:
 //  {name: "João"}
 //  MongoDB:
 //  {name: 'xxx', lastStatus: Date.now()}
-//  {from: 'xxx', to: 'Todos', text: 'entra na sala...', type: 'status', time: 'HH:MM:SS'}
+//
 
 server.get('/participants', (req, res) => {});
 //  Retornar a lista de todos os participantes
