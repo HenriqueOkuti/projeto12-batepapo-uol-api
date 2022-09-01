@@ -16,7 +16,7 @@ let db;
 
 mongoClient
   .connect()
-  .then(() => (db = mongoClient.db('uol-users')))
+  .then(() => (db = mongoClient.db('uol')))
   .catch((error) => console.log(error));
 
 server.post('/participants', async (req, res) => {
@@ -56,21 +56,30 @@ server.post('/participants', async (req, res) => {
     time: dayjs().format('HH:mm:ss'),
   });
 
+  //Remove bellow
   const last_message = await db
     .collection('uol-chatlog')
     .findOne({ from: user.name });
   console.log(last_message);
+  //Remove above
 
   res.sendStatus(201);
 });
-//  body da request:
-//  {name: "João"}
-//  MongoDB:
-//  {name: 'xxx', lastStatus: Date.now()}
-//
 
-server.get('/participants', (req, res) => {});
-//  Retornar a lista de todos os participantes
+server.get('/participants', async (req, res) => {
+  //Not fully sure if i'm sending the correct data structure
+  try {
+    const usersDB = await db.collection('uol-users').find().toArray();
+    console.log(usersDB);
+    //alphabetically sort !Caution: May be too slow with larger databases
+    usersDB.sort((a, b) => a.name.localeCompare(b.name));
+    console.log(usersDB);
+    res.send(usersDB);
+  } catch (error) {
+    console.log(error);
+    res.sendStatus(500);
+  }
+});
 
 server.post('/messages', (req, res) => {});
 //  body da request:
