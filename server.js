@@ -21,16 +21,13 @@ mongoClient
 
 server.post('/participants', async (req, res) => {
   const user = req.body;
-
   const joi_user = joi.object({
     name: joi.string().required(),
   });
-
   const joi_feedback = joi_user.validate(user);
   if (joi_feedback.error) {
     return res.sendStatus(422);
   }
-
   try {
     const searchUser = await db
       .collection('uol-users')
@@ -39,10 +36,10 @@ server.post('/participants', async (req, res) => {
       return res.sendStatus(409);
     }
   } catch (error) {
+    //Wasn't able to arrive here, so i'm unsure which status to send
     console.log(error);
     res.sendStatus(500);
   }
-
   await db.collection('uol-users').insertOne({
     name: user.name,
     lastStatus: Date.now(),
@@ -55,13 +52,6 @@ server.post('/participants', async (req, res) => {
     type: 'status',
     time: dayjs().format('HH:mm:ss'),
   });
-
-  //Remove bellow
-  const last_message = await db
-    .collection('uol-chatlog')
-    .findOne({ from: user.name });
-  console.log(last_message);
-  //Remove above
 
   res.sendStatus(201);
 });
@@ -81,7 +71,43 @@ server.get('/participants', async (req, res) => {
   }
 });
 
-server.post('/messages', (req, res) => {});
+server.post('/messages', async (req, res) => {
+  const message = req.body;
+  const user = req.headers.user;
+
+  const joi_message = joi.object({
+    to: joi.string().required(),
+    text: joi.string().required(),
+    type: joi.string().valid('message', 'private_message'),
+  });
+  const joi_user = joi.string().alphanum().required();
+
+  const joi_feedback_message = joi_message.validate(message);
+  const joi_feedback_user = joi_user.validate(user);
+  if (joi_feedback_message.error || joi_feedback_user.error) {
+    return res.sendStatus(422);
+  }
+  try {
+    const searchUser = await db.collection('uol-users').findOne({ name: user });
+    if (searchUser) {
+      return res.sendStatus(422);
+    }
+  } catch (error) {
+    //Not sure what would cause to arrive here either
+    console.log(error);
+    res.sendStatus(500);
+  }
+
+  await db.collection('uol-chatlog').insertOne({
+    to: message.to,
+    text: message.text,
+    type: message.type,
+    from: user,
+    time: dayjs().format('HH:mm:ss'),
+  });
+
+  res.sendStatus(201);
+});
 //  body da request:
 //  {to: "Maria", text: "oi sumida rs", type: "private_message"}
 
