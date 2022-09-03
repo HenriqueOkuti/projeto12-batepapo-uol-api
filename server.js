@@ -148,7 +148,24 @@ server.get('/messages', async (req, res) => {
   }
 });
 
-server.post('/status', (req, res) => {});
+server.post('/status', async (req, res) => {
+  const user = req.headers.user;
+  try {
+    const searchUser = await db.collection('uol-users').findOne({ name: user });
+    if (!searchUser) {
+      return res.sendStatus(404);
+    }
+  } catch (error) {
+    //Wasn't able to arrive here, so i'm unsure which status to send
+    console.log(error);
+    res.sendStatus(500);
+  }
+
+  await db
+    .collection('uol-users')
+    .updateOne({ name: user }, { $set: { lastStatus: Date.now() } });
+  res.sendStatus(200);
+});
 
 // Participant in Participants
 // {name: 'João', lastStatus: 12313123}
