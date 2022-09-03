@@ -60,10 +60,10 @@ server.get('/participants', async (req, res) => {
   //Not fully sure if i'm sending the correct data structure
   try {
     const usersDB = await db.collection('uol-users').find().toArray();
-    console.log(usersDB);
+
     //alphabetically sort !Caution: May be too slow with larger databases
     usersDB.sort((a, b) => a.name.localeCompare(b.name));
-    console.log(usersDB);
+
     res.send(usersDB);
   } catch (error) {
     console.log(error);
@@ -74,6 +74,9 @@ server.get('/participants', async (req, res) => {
 server.post('/messages', async (req, res) => {
   const message = req.body;
   const user = req.headers.user;
+
+  console.log(message);
+  console.log(user);
 
   const joi_message = joi.object({
     to: joi.string().required(),
@@ -89,8 +92,8 @@ server.post('/messages', async (req, res) => {
   }
   try {
     const searchUser = await db.collection('uol-users').findOne({ name: user });
-    if (searchUser) {
-      return res.sendStatus(422);
+    if (!searchUser) {
+      return res.sendStatus(423);
     }
   } catch (error) {
     //Not sure what would cause to arrive here either
@@ -108,12 +111,42 @@ server.post('/messages', async (req, res) => {
 
   res.sendStatus(201);
 });
-//  body da request:
-//  {to: "Maria", text: "oi sumida rs", type: "private_message"}
 
-server.get('/messages', (req, res) => {});
-//  query string
-//  http://localhost:4000/messages?limit=100 + header: user
+server.get('/messages', async (req, res) => {
+  const limit = req.query.limit;
+  const user = req.headers.user;
+  let limitNum = -1;
+  let joi_feedback;
+  if (limit) {
+    const joi_limit = joi.number();
+    limitNum = Number(limit);
+    joi_feedback = joi_limit.validate(limitNum);
+  }
+  if (limit && joi_feedback.error) {
+    return res.sendStatus(422);
+  }
+  try {
+    let chatlog = await db.collection('uol-chatlog').find().toArray();
+    const userChatlog = [];
+    //Early exit when arrive at limit if it's not -1 ???
+    for (let i = 0, len = chatlog.length; i < len; i++) {
+      if (
+        chatlog[i].to === 'Todos' ||
+        chatlog[i].to === user ||
+        chatlog[i].type === 'message'
+      ) {
+        userChatlog.push(chatlog[i]);
+      }
+    }
+    if (limit) {
+      return res.send(userChatlog.splice(-limitNum));
+    }
+    res.send(userChatlog);
+  } catch (error) {
+    console.log(error);
+    res.sendStatus(500);
+  }
+});
 
 server.post('/status', (req, res) => {});
 
