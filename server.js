@@ -24,11 +24,11 @@ mongoClient
 
 server.post('/participants', async (req, res) => {
   const user = req.body;
-  const joi_user = joi.object({
+  const joiUser = joi.object({
     name: joi.string().required(),
   });
-  const joi_feedback = joi_user.validate(user);
-  if (joi_feedback.error) {
+  const joiFeedback = joiUser.validate(user);
+  if (joiFeedback.error) {
     return res.sendStatus(422);
   }
   try {
@@ -39,7 +39,6 @@ server.post('/participants', async (req, res) => {
       return res.sendStatus(409);
     }
   } catch (error) {
-    //Wasn't able to arrive here, so i'm unsure which status to send
     console.log(error);
     res.sendStatus(500);
   }
@@ -78,16 +77,16 @@ server.post('/messages', async (req, res) => {
   const message = req.body;
   const user = req.headers.user;
 
-  const joi_message = joi.object({
+  const joiMessage = joi.object({
     to: joi.string().required(),
     text: joi.string().required(),
     type: joi.string().valid('message', 'private_message'),
   });
-  const joi_user = joi.string().alphanum().required();
+  const joiUser = joi.string().alphanum().required();
 
-  const joi_feedback_message = joi_message.validate(message);
-  const joi_feedback_user = joi_user.validate(user);
-  if (joi_feedback_message.error || joi_feedback_user.error) {
+  const joiFeedbackMessage = joiMessage.validate(message);
+  const joiFeedbackUser = joiUser.validate(user);
+  if (joiFeedbackMessage.error || joiFeedbackUser.error) {
     return res.sendStatus(422);
   }
   try {
@@ -96,7 +95,6 @@ server.post('/messages', async (req, res) => {
       return res.sendStatus(422);
     }
   } catch (error) {
-    //Not sure what would cause to arrive here either
     console.log(error);
     res.sendStatus(500);
   }
@@ -108,9 +106,6 @@ server.post('/messages', async (req, res) => {
     from: user,
     time: dayjs().format('HH:mm:ss'),
   };
-
-  console.log(newMessage);
-
   await db.collection('uol-chatlog').insertOne(newMessage);
 
   res.sendStatus(201);
@@ -120,13 +115,13 @@ server.get('/messages', async (req, res) => {
   const limit = req.query.limit;
   const user = req.headers.user;
   let limitNum = -1;
-  let joi_feedback;
+  let joiFeedback;
   if (limit) {
-    const joi_limit = joi.number();
+    const joiLimit = joi.number();
     limitNum = Number(limit);
-    joi_feedback = joi_limit.validate(limitNum);
+    joiFeedback = joiLimit.validate(limitNum);
   }
-  if (limit && joi_feedback.error) {
+  if (limit && joiFeedback.error) {
     return res.sendStatus(422);
   }
   try {
@@ -184,9 +179,9 @@ async function handleInactiveUsers() {
       .find({ lastStatus: { $lte: timeLimit } })
       .toArray();
     if (inactiveUsers.length > 0) {
-      const logout_messages = [];
+      const logoutMessages = [];
       for (let i = 0, len = inactiveUsers.length; i < len; i++) {
-        logout_messages.push({
+        logoutMessages.push({
           from: inactiveUsers[i].name,
           to: 'Todos',
           text: 'sai da sala...',
@@ -198,7 +193,7 @@ async function handleInactiveUsers() {
         db
           .collection('uol-users')
           .deleteMany({ lastStatus: { $lte: timeLimit } }),
-        db.collection('uol-chatlog').insertMany(logout_messages),
+        db.collection('uol-chatlog').insertMany(logoutMessages),
       ]);
     }
   } catch (error) {
