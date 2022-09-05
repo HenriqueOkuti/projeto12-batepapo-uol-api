@@ -1,6 +1,6 @@
 import cors from 'cors';
 import express from 'express';
-import { MongoClient } from 'mongodb';
+import { MongoClient, ObjectId } from 'mongodb';
 import dotenv from 'dotenv';
 import dayjs from 'dayjs';
 import joi from 'joi';
@@ -78,9 +78,6 @@ server.post('/messages', async (req, res) => {
   const message = req.body;
   const user = req.headers.user;
 
-  console.log(message);
-  console.log(user);
-
   const joi_message = joi.object({
     to: joi.string().required(),
     text: joi.string().required(),
@@ -96,7 +93,7 @@ server.post('/messages', async (req, res) => {
   try {
     const searchUser = await db.collection('uol-users').findOne({ name: user });
     if (!searchUser) {
-      return res.sendStatus(423);
+      return res.sendStatus(422);
     }
   } catch (error) {
     //Not sure what would cause to arrive here either
@@ -104,13 +101,17 @@ server.post('/messages', async (req, res) => {
     res.sendStatus(500);
   }
 
-  await db.collection('uol-chatlog').insertOne({
+  const newMessage = {
     to: message.to,
     text: message.text,
     type: message.type,
     from: user,
     time: dayjs().format('HH:mm:ss'),
-  });
+  };
+
+  console.log(newMessage);
+
+  await db.collection('uol-chatlog').insertOne(newMessage);
 
   res.sendStatus(201);
 });
@@ -207,6 +208,29 @@ async function handleInactiveUsers() {
 //BONUS 1: Sanitização de dados
 
 //BONUS 2: DELETE/messages/ID_DA_MENSAGEM
+
+server.delete('/messages/:id', async (req, res) => {
+  const user = req.headers.user;
+  const id = req.params.id;
+
+  try {
+    const searchMessage = await db
+      .collection('uol-chatlog')
+      .findOne({ _id: new ObjectId(id) });
+    if (searchMessage === null) {
+      return res.sendStatus(404);
+    }
+    if (searchMessage.from === user) {
+      await db.collection('uol-chatlog').deleteOne({ _id: new ObjectId(id) });
+    } else {
+      return res.sendStatus(401);
+    }
+  } catch (error) {
+    console.log(error);
+    res.sendStatus(500);
+  }
+  res.sendStatus(200);
+});
 
 //BONUS 3: PUT/messages/ID_DA_MENSAGEM
 
