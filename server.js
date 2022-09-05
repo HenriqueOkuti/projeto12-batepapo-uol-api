@@ -230,4 +230,49 @@ server.delete('/messages/:id', async (req, res) => {
 
 //BONUS 3: PUT/messages/ID_DA_MENSAGEM
 
+server.put('/messages/:id', async (req, res) => {
+  const { to, text, type } = req.body;
+  const id = req.params.id;
+  const user = req.headers.user;
+  const message = {
+    to: to,
+    text: text,
+    type: type,
+  };
+
+  const joiMessage = joi.object({
+    to: joi.string().required(),
+    text: joi.string().required(),
+    type: joi.string().valid('message', 'private_message'),
+  });
+  const joiUser = joi.string().alphanum().required();
+
+  const joiFeedbackMessage = joiMessage.validate(message);
+  const joiFeedbackUser = joiUser.validate(user);
+  if (joiFeedbackMessage.error || joiFeedbackUser.error) {
+    return res.sendStatus(422);
+  }
+
+  try {
+    const searchMessage = await db
+      .collection('uol-chatlog')
+      .findOne({ _id: new ObjectId(id) });
+    if (!searchMessage) {
+      return res.sendStatus(404);
+    }
+    if (searchMessage.from !== user) {
+      return res.sendStatus(401);
+    }
+  } catch (error) {
+    console.log(error);
+    res.sendStatus(500);
+  }
+
+  await db
+    .collection('uol-chatlog')
+    .updateOne({ _id: new ObjectId(id) }, { $set: req.body });
+
+  res.sendStatus(200);
+});
+
 server.listen(5000, () => console.log('Listening on port 5000'));
