@@ -5,6 +5,9 @@ import dotenv from 'dotenv';
 import dayjs from 'dayjs';
 import joi from 'joi';
 
+const SECONDS_15 = 15 * 1000;
+const SECONDS_10 = 10 * 1000;
+
 const server = express();
 
 server.use(cors());
@@ -167,22 +170,44 @@ server.post('/status', async (req, res) => {
   res.sendStatus(200);
 });
 
-// Participant in Participants
-// {name: 'João', lastStatus: 12313123}
+setInterval(handleInactiveUsers, SECONDS_15);
 
-// Message in Messages
-// {
-//  from: 'João',
-//  to: 'Todos',
-//  text: 'oi galera',
-//  type: 'message',
-//  time: '20:04:37'
-// }
-// {from: 'João', to: 'Todos', text: 'oi galera', type: 'message', time: '20:04:37'}
+async function handleInactiveUsers() {
+  const timeNow = Date.now();
+  const timeLimit = timeNow - SECONDS_10;
 
-///////
-//back-end só deve entregar as mensagens que aquele usuário poderia ver.
-//Ou seja, deve entregar todas as mensagens públicas, todas as mensagens privadas enviadas para ele e por ele.
-//Para isso, o front envia um head
+  try {
+    const inactiveUsers = await db
+      .collection('uol-users')
+      .find({ lastStatus: { $lte: timeLimit } })
+      .toArray();
+    if (inactiveUsers.length > 0) {
+      const logout_messages = [];
+      for (let i = 0, len = inactiveUsers.length; i < len; i++) {
+        logout_messages.push({
+          from: inactiveUsers[i].name,
+          to: 'Todos',
+          text: 'sai da sala...',
+          type: 'status',
+          time: dayjs().format('HH:mm:ss'),
+        });
+      }
+      await Promise.all([
+        db
+          .collection('uol-users')
+          .deleteMany({ lastStatus: { $lte: timeLimit } }),
+        db.collection('uol-chatlog').insertMany(logout_messages),
+      ]);
+    }
+  } catch (error) {
+    console.log(error);
+  }
+}
+
+//BONUS 1: Sanitização de dados
+
+//BONUS 2: DELETE/messages/ID_DA_MENSAGEM
+
+//BONUS 3: PUT/messages/ID_DA_MENSAGEM
 
 server.listen(5000, () => console.log('Listening on port 5000'));
