@@ -137,7 +137,8 @@ server.get('/messages', async (req, res) => {
       if (
         chatlog[i].to === 'Todos' ||
         chatlog[i].to === user ||
-        chatlog[i].type === 'message'
+        chatlog[i].type === 'message' ||
+        chatlog[i].from === user
       ) {
         userChatlog.push(chatlog[i]);
       }
