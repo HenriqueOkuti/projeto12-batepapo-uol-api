@@ -4,6 +4,7 @@ import { MongoClient, ObjectId } from 'mongodb';
 import dotenv from 'dotenv';
 import dayjs from 'dayjs';
 import joi from 'joi';
+import { stripHtml } from 'string-strip-html';
 
 const SECONDS_15 = 15 * 1000;
 const SECONDS_10 = 10 * 1000;
@@ -23,7 +24,7 @@ mongoClient
   .catch((error) => console.log(error));
 
 server.post('/participants', async (req, res) => {
-  const user = req.body;
+  const user = sanitizeData(req.body);
   const joiUser = joi.object({
     name: joi.string().required(),
   });
@@ -74,8 +75,8 @@ server.get('/participants', async (req, res) => {
 });
 
 server.post('/messages', async (req, res) => {
-  const message = req.body;
-  const user = req.headers.user;
+  const message = sanitizeData(req.body);
+  const user = sanitizeData(req.headers.user);
 
   const joiMessage = joi.object({
     to: joi.string().required(),
@@ -113,7 +114,7 @@ server.post('/messages', async (req, res) => {
 
 server.get('/messages', async (req, res) => {
   const limit = req.query.limit;
-  const user = req.headers.user;
+  const user = sanitizeData(req.headers.user);
   let limitNum = -1;
   let joiFeedback;
   if (limit) {
@@ -149,7 +150,7 @@ server.get('/messages', async (req, res) => {
 });
 
 server.post('/status', async (req, res) => {
-  const user = req.headers.user;
+  const user = sanitizeData(req.headers.user);
   try {
     const searchUser = await db.collection('uol-users').findOne({ name: user });
     if (!searchUser) {
@@ -203,6 +204,17 @@ async function handleInactiveUsers() {
 
 //BONUS 1: Sanitização de dados
 
+function sanitizeData(request) {
+  if (typeof request === 'string') {
+    return stripHtml(request).result.trim();
+  }
+
+  for (const key in request) {
+    request[key] = stripHtml(request[key]).result.trim();
+  }
+  return request;
+}
+
 //BONUS 2: DELETE/messages/ID_DA_MENSAGEM
 
 server.delete('/messages/:id', async (req, res) => {
@@ -231,9 +243,9 @@ server.delete('/messages/:id', async (req, res) => {
 //BONUS 3: PUT/messages/ID_DA_MENSAGEM
 
 server.put('/messages/:id', async (req, res) => {
-  const { to, text, type } = req.body;
+  const { to, text, type } = sanitizeData(req.body);
   const id = req.params.id;
-  const user = req.headers.user;
+  const user = sanitizeData(req.headers.user);
   const message = {
     to: to,
     text: text,
